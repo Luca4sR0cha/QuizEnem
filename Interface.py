@@ -307,7 +307,7 @@ tela_inicio.pack(fill="both", expand=True)
 
 try:
 
-    url_logo = "https://upload.wikimedia.org/wikipedia/commons/0/05/Logo_enem.png"
+    url_logo = "https://vetores.org/wp-content/uploads/enem.png"
 
     img_res = requests.get(url_logo)
 
