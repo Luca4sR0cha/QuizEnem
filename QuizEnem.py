@@ -1,48 +1,116 @@
 import requests
 import random
-from ascii_magic import AsciiArt
-from PIL import Image
-from io import BytesIO
+from openai import OpenAI
 
-# Sorteia ano e número da questão
-ano = random.randint(2009, 2023)
-numero = random.randint(1, 180)
-url_api = f"https://api.enem.dev/v1/exams/{ano}/questions/{numero}"
+# IA
+client_openAI = OpenAI(
+    base_url="http://127.0.0.1:1234/v1",
+    api_key="lm-studio"
+)
 
-try:
-    response = requests.get(url_api)
-    if response.status_code == 200:
-        questoes = response.json()
+# API ENEM
+URL_BASE = "https://api.enem.dev/v1/exams"
 
-        # Tenta pegar a imagem da questão sorteada
-        if questoes.get("files"):
-            img_url = questoes["files"][0] 
-            img_res = requests.get(img_url)
-            img = Image.open(BytesIO(img_res.content))
-            img.show() 
-            
-            # OPÇÃO 2: Exibir no terminal (usando o ascii_magic que você importou)
-            # art = AsciiArt.from_pillow(img)
-            # art.to_terminal(columns=80)
+while True:
 
-        print("-" * 30)
+    # sorteia questão
+    ano = random.randint(2009, 2023)
+    numero = random.randint(1, 180)
+
+    url_api = f"{URL_BASE}/{ano}/questions/{numero}"
+
+    try:
+
+        response = requests.get(url_api)
+
+        if response.status_code != 200:
+            print("Erro ao pegar questão.\n")
+            continue
+
+        questao = response.json()
+
+        print("\n" + "-" * 50)
         print(f"ENEM {ano} - Questão {numero}")
-        print(f"Matéria: {questoes['discipline'].capitalize()}\n")
-        print(f"{questoes['title']}\n")
-        print(f"{questoes['context']}\n")
+        print(f"Matéria: {questao['discipline'].capitalize()}")
+        print("-" * 50)
 
-        for alt in questoes["alternatives"]:
+        # pergunta
+        print(f"\n{questao['title']}\n")
+        print(f"{questao['context']}\n")
+
+        # alternativas
+        for alt in questao["alternatives"]:
+
             print(f"{alt['letter']}) {alt['text']}")
-        
-        print("-" * 30)
-        resposta = input("Sua resposta: ").strip().lower()
 
-        if resposta == questoes["correctAlternative"].lower():
-            print("\n⭐ Mandou bem, nerd! Acertou.")
+        # resposta do usuário
+        resposta = input("\nSua resposta: ").strip().lower()
+
+        correta = questao["correctAlternative"].lower()
+
+        # verifica
+        if resposta == correta:
+
+            print("\n⭐ Acertou!")
+
         else:
-            print(f"\n❌ Errou! A correta era: {questoes['correctAlternative']}")
-    else:
-        print(f"Questão {numero} de {ano} não encontrada.")
 
-except Exception as e:
-    print(f"Erro inesperado: {e}")
+            print(f"\n❌ Errou faz enem!")
+            print(f"Resposta correta: {correta.upper()}")
+
+            usar_ia = input(
+                "\nQuer explicação da IA? (s/n): "
+            ).lower()
+
+            # IA explica
+            if usar_ia == "s":
+
+                print("\nIA pensando...\n")
+
+                resposta_ia = client_openAI.chat.completions.create(
+                    model="google/gemma-3-1b",
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": "Você é um professor didático"
+                        },
+                        {
+                            "role": "user",
+                            "content": f"""
+                            Explique essa questão:
+
+                            Matéria:
+                            {questao['discipline']}
+
+                            Questão:
+                            {questao['title']}
+
+                            Texto:
+                            {questao['context']}
+
+                            Alternativas:
+                            {questao['alternatives']}
+
+                            Correta:
+                            {questao['correctAlternative']}
+
+                            Minha resposta:
+                            {resposta}
+
+                            Explique de forma simples.
+                            """
+                        }
+                    ],
+                    temperature=0.7
+                )
+
+                print(resposta_ia.choices[0].message.content)
+
+        continuar = input("\nContinuar? (s/n): ").lower()
+
+        if continuar != "s":
+            break
+
+    except Exception as e:
+
+        print(f"\nErro: {e}")
