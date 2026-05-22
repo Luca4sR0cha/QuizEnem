@@ -1,14 +1,12 @@
 import requests
 import random
-from openai import OpenAI
+import time
 from PIL import Image
 from io import BytesIO
+from pytimedinput import timedInput
 
 # IA
-client_openAI = OpenAI(
-    base_url="http://127.0.0.1:1234/v1",
-    api_key="lm-studio"
-)
+
 
 # API ENEM
 URL_BASE = "https://api.enem.dev/v1/exams"
@@ -88,7 +86,11 @@ while True:
             print(f"{alt['letter']}) {alt['text']}")
 
         # resposta do usuário
-        resposta = input("\nSua resposta: ").strip().lower()
+        print(f"\nSua resposta (você tem 60s):")
+        # timeout=60 define o tempo, e o input é lido em 'resposta'
+        resposta_bruta, timedOut = timedInput("> ", timeout=180)
+
+        resposta = resposta_bruta.strip().lower()
 
         # Valida se o usuário escolheu uma alternativa que está visível
         letras_visiveis = [a['letter'].lower() for a in alt_filtradas]
@@ -98,68 +100,24 @@ while True:
 
         correta = questao["correctAlternative"].lower()
 
+        # Pequena pausa para suspense
+        import time
+        time.sleep(1) 
+
         # verifica
         if resposta == correta:
             print("\n⭐ Acertou!")
-
+        
+        elif timedOut:
+            print("\n\n⏰ TEMPO ESGOTADO! Você demorou para responder.")
+            
         else:
-            print(f"\n❌ Errou faz enem!")
+            print(f"\n❌ Errou! Estuda mais que o ENEM tá chegando!")
             print(f"Resposta correta: {correta.upper()}")
 
-            usar_ia = input(
-                "\nQuer explicação da IA? (s/n): "
-            ).lower()
-
-            # IA explica
-            if usar_ia == "s":
-
-                print("\nIA pensando...\n")
-
-                resposta_ia = client_openAI.chat.completions.create(
-                    model="google/gemma-3-1b",
-                    messages=[
-                        {
-                            "role": "system",
-                            "content": "Você é um professor didático"
-                        },
-                        {
-                            "role": "user",
-                            "content": f"""
-                            Explique essa questão:
-
-                            Matéria:
-                            {questao['discipline']}
-
-                            Questão:
-                            {questao['title']}
-
-                            Texto:
-                            {questao['context']}
-
-                            Alternativas originais:
-                            {questao['alternatives']}
-
-                            Alternativas mostradas ao usuário:
-                            {alt_filtradas}
-
-                            Correta:
-                            {questao['correctAlternative']}
-
-                            Minha resposta:
-                            {resposta}
-
-                            Explique de forma simples.
-                            """
-                        }
-                    ],
-                    temperature=0.7
-                )
-
-                print(resposta_ia.choices[0].message.content)
-
         continuar = input("\nContinuar? (s/n): ").lower()
-
         if continuar == "n":
             break
+
     except Exception as e:
         print(f"\nErro: {e}")
